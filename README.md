@@ -162,3 +162,9 @@ To use the Docker container with Claude Desktop, configure with the HTTP URL:
   }
 }
 ```
+
+
+
+## Disclaimer
+
+I had claude-code write this mcp server, under my (a professional software engineer with 15yrs of experience) supervision.  
