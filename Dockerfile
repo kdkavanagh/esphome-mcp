@@ -7,4 +7,6 @@ COPY src/ src/
 
 RUN pip install --no-cache-dir .
 
-ENTRYPOINT ["esphome-mcp"]
+EXPOSE 8080
+
+ENTRYPOINT ["esphome-mcp-web"]

@@ -12,6 +12,7 @@ dependencies = [
 
 [project.scripts]
 esphome-mcp = "esphome_mcp.__main__:main"
+esphome-mcp-web = "esphome_mcp.__main__:main_web"
 
 [dependency-groups]
 dev = [

@@ -87,10 +87,13 @@ docker build -t esphome-mcp .
 Run standalone:
 
 ```bash
-docker run -i --rm \
+docker run --rm \
   -e ESPHOME_DASHBOARD_URL=http://192.168.1.100:6052 \
+  -p 8080:8080 \
   esphome-mcp
 ```
+
+The Docker image runs the MCP server in streamable-http mode on port 8080.
 
 #### Docker Compose
 
@@ -106,28 +109,25 @@ services:
 
   esphome-mcp:
     image: ghcr.io/kdkavanagh/esphome-mcp:latest
+    ports:
+      - "8080:8080"
     environment:
       - ESPHOME_DASHBOARD_URL=http://esphome:6052
     # Uncomment if your dashboard has auth enabled:
     # - ESPHOME_DASHBOARD_USERNAME=admin
     # - ESPHOME_DASHBOARD_PASSWORD=your-password
-    stdin_open: true
     depends_on:
       - esphome
 ```
 
-To use the Docker container with Claude Desktop, configure it with the `docker` command:
+To use the Docker container with Claude Desktop, configure with the streamable-http URL:
 
 ```json
 {
   "mcpServers": {
     "esphome": {
-      "command": "docker",
-      "args": [
-        "run", "-i", "--rm",
-        "-e", "ESPHOME_DASHBOARD_URL=http://192.168.1.100:6052",
-        "ghcr.io/kdkavanagh/esphome-mcp:latest"
-      ]
+      "type": "streamable-http",
+      "url": "http://localhost:8080/mcp"
     }
   }
 }
