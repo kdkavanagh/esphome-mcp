@@ -2,10 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+ARG SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
+
 COPY pyproject.toml .
 COPY src/ src/
 
-RUN pip install --no-cache-dir .
+RUN SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION} pip install --no-cache-dir .
 
 EXPOSE 8080
 
