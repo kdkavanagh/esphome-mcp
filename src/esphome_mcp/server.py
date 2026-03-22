@@ -10,12 +10,32 @@ from esphome_mcp.client import get_client
 
 logger = logging.getLogger(__name__)
 
+INSTRUCTIONS = """\
+This server provides read-only access to an ESPHome dashboard.
+
+## Workflow
+
+1. **Always start by calling `list_device_names`** to get the list of known device names. \
+Device names must match exactly (case-insensitive), so confirm the name against this list \
+before passing it to any other tool.
+
+2. Once you have a valid device name, use the other tools as needed:
+   - `list_devices` — detailed info on all devices (versions, status, addresses, platform)
+   - `check_device_update` — check if a firmware update is available
+   - `get_device_status` — check if a device is online or offline
+   - `get_device_configuration` — view the full YAML configuration
+   - `get_device_logs` — stream recent logs (default 10s, max 30s). \
+The device must be online for logs to be available.
+
+## Important notes
+- All tools are read-only. No changes can be made to devices or configurations.
+- Device names are the ESPHome `name` field (e.g. "bike-outlet"), not the friendly name.
+- If a tool returns "not found", re-check the name with `list_device_names`.
+"""
+
 mcp = FastMCP(
     name="ESPHome MCP",
-    instructions=(
-        "Interact with an ESPHome dashboard to list devices, "
-        "check for updates, view configurations, and stream logs."
-    ),
+    instructions=INSTRUCTIONS,
 )
 
 
