@@ -9,6 +9,9 @@ permissions:
   contents: write
   packages: write
 
+env:
+  VENV: .venv
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -19,11 +22,8 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install package and test dependencies
-        run: pip install -e . pytest pytest-asyncio esphome
-
-      - name: Run tests
-        run: pytest tests/ -v
+      - name: Test
+        run: make test
 
   pypi-package:
     runs-on: ubuntu-latest
@@ -37,11 +37,8 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install build tools
-        run: pip install build
-
       - name: Build package
-        run: python -m build
+        run: make build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

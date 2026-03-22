@@ -32,20 +32,16 @@ tests/
 
 ## Development Commands
 ```bash
-# Setup
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e .
-pip install ruff ty pytest pytest-asyncio esphome
-
-# Lint and format
-ruff check src/ tests/
-ruff format src/ tests/
-
-# Type check
-ty check src/
-
-# Run tests (spins up a real ESPHome dashboard)
-pytest tests/ -v
+make install-dev   # Create venv, install package + dev tools
+make activate      # Open a shell with the venv activated
+make lint          # Ruff lint check
+make format        # Ruff auto-format
+make format-check  # Ruff format check (CI mode)
+make typecheck     # ty type check
+make test          # Run integration tests
+make check         # Run all checks (lint + format-check + typecheck + test)
+make build         # Build sdist + wheel
+make clean         # Remove venv and build artifacts
 ```
 
 ## Environment Variables
