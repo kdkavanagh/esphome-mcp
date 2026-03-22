@@ -28,7 +28,12 @@ def _check_connectivity() -> None:
             logger.info("Connected to ESPHome dashboard. Found %d device(s): %s", len(names), names)
             return
         except Exception as e:
-            logger.error("Failed to connect to ESPHome dashboard (attempt %d/%d): %s", attempt, _MAX_RETRIES, e)
+            logger.error(
+                "Failed to connect to ESPHome dashboard (attempt %d/%d): %s",
+                attempt,
+                _MAX_RETRIES,
+                e,
+            )
             if attempt < _MAX_RETRIES:
                 logger.info("Retrying in %d seconds...", _RETRY_DELAY)
                 time.sleep(_RETRY_DELAY)
