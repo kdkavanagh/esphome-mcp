@@ -1,17 +1,18 @@
 VENV := .venv
 PYTHON := $(VENV)/bin/python
-PIP := $(VENV)/bin/pip
+UV := $(VENV)/bin/uv
 
 .PHONY: venv install install-dev lint format format-check typecheck test build clean activate
 
 venv:
 	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install uv
 
 install: venv
-	$(PIP) install -e .
+	$(UV) pip install -e .
 
 install-dev: install
-	$(PIP) install ruff ty pytest pytest-asyncio esphome
+	$(UV) pip install ruff ty pytest pytest-asyncio esphome
 
 lint: install-dev
 	$(VENV)/bin/ruff check src/ tests/
@@ -29,7 +30,7 @@ test: install-dev
 	$(VENV)/bin/pytest tests/ -v
 
 build: install
-	$(PIP) install build
+	$(UV) pip install build
 	$(PYTHON) -m build
 
 check: lint format-check typecheck test

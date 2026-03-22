@@ -7,7 +7,8 @@ ARG SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
 COPY pyproject.toml .
 COPY src/ src/
 
-RUN SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION} pip install --no-cache-dir .
+RUN pip install uv && \
+    SETUPTOOLS_SCM_PRETEND_VERSION=${SETUPTOOLS_SCM_PRETEND_VERSION} uv pip install --system --no-cache .
 
 EXPOSE 8080
 
