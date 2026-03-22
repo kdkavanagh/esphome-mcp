@@ -4,7 +4,8 @@ import asyncio
 import base64
 import json
 import logging
-from urllib.parse import urljoin, urlparse
+from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 import websockets
@@ -51,20 +52,24 @@ class ESPHomeClient:
         scheme = "wss" if parsed.scheme == "https" else "ws"
         return f"{scheme}://{parsed.netloc}{parsed.path.rstrip('/')}/{path.lstrip('/')}"
 
-    async def get_devices(self) -> list[dict]:
+    async def get_devices(self) -> list[dict[str, Any]]:
         """Fetch all devices from the dashboard."""
         async with self._http_client() as client:
             resp = await client.get("/devices")
             resp.raise_for_status()
-            data = resp.json()
-            return data.get("configured", []) + data.get("importable", [])
+            data: dict[str, Any] = resp.json()
+            configured: list[dict[str, Any]] = data.get("configured", [])
+            importable: list[dict[str, Any]] = data.get("importable", [])
+            return configured + importable
 
-    async def get_configured_devices(self) -> list[dict]:
+    async def get_configured_devices(self) -> list[dict[str, Any]]:
         """Fetch only configured devices from the dashboard."""
         async with self._http_client() as client:
             resp = await client.get("/devices")
             resp.raise_for_status()
-            return resp.json().get("configured", [])
+            data: dict[str, Any] = resp.json()
+            result: list[dict[str, Any]] = data.get("configured", [])
+            return result
 
     async def get_version(self) -> str:
         """Fetch the ESPHome version from the dashboard."""
@@ -101,9 +106,7 @@ class ESPHomeClient:
                 additional_headers=self._ws_auth_header,
             ) as ws:
                 # Send the configuration to start log streaming
-                await ws.send(
-                    json.dumps({"configuration": filename, "port": "OTA"})
-                )
+                await ws.send(json.dumps({"configuration": filename, "port": "OTA"}))
 
                 try:
                     async with asyncio.timeout(duration):
@@ -124,5 +127,5 @@ class ESPHomeClient:
         return "\n".join(lines)
 
 
-settings = ESPHomeSettings()
+settings = ESPHomeSettings()  # type: ignore[call-arg]  # populated from env vars
 client = ESPHomeClient(settings)

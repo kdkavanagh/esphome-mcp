@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import contextlib
+from typing import Any
+
 from fastmcp import FastMCP
 
 from esphome_mcp.client import client
@@ -13,7 +16,7 @@ mcp = FastMCP(
 )
 
 
-async def _resolve_device(device_name: str) -> dict | str:
+async def _resolve_device(device_name: str) -> dict[str, Any] | str:
     """Resolve a device name to its entry dict.
 
     Returns the device dict on success, or an error string if not found.
@@ -69,10 +72,8 @@ async def list_devices() -> str:
         )
 
     version = "unknown"
-    try:
+    with contextlib.suppress(Exception):
         version = await client.get_version()
-    except Exception:
-        pass
 
     header = f"ESPHome version: {version}\n{len(devices)} device(s):\n"
     return header + "\n".join(lines)
@@ -184,6 +185,9 @@ async def get_device_logs(device_name: str, duration: int = 10) -> str:
         return f"Error fetching logs: {e}"
 
     if not logs.strip():
-        return f"No log output received from '{device_name}' within {duration} seconds. The device may be offline."
+        return (
+            f"No log output received from '{device_name}' within {duration} seconds. "
+            f"The device may be offline."
+        )
 
     return logs
