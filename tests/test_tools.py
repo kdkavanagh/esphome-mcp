@@ -138,3 +138,56 @@ async def test_check_device_update_case_insensitive(mcp_client: Client) -> None:
     # Should resolve successfully via case-insensitive match on "name"
     assert "not found" not in text.lower()
     assert "version" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_device_version(mcp_client: Client) -> None:
+    """get_device_version should return version info for a known device."""
+    result = await mcp_client.call_tool("get_device_version", {"device_name": "bike-outlet"})
+    text = result.content[0].text
+
+    assert "bike" in text.lower() or "Bike Outlet" in text
+    assert "version" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_device_version_not_found(mcp_client: Client) -> None:
+    """get_device_version should return error for unknown device."""
+    result = await mcp_client.call_tool("get_device_version", {"device_name": "nonexistent"})
+    text = result.content[0].text
+
+    assert "not found" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_esphome_schema_list_components(mcp_client: Client) -> None:
+    """get_esphome_schema without component should list available components."""
+    result = await mcp_client.call_tool("get_esphome_schema", {"version": "2025.8.0"})
+    text = result.content[0].text
+
+    assert "components" in text.lower()
+    assert "sensor" in text
+    assert "wifi" in text
+
+
+@pytest.mark.asyncio
+async def test_get_esphome_schema_specific_component(mcp_client: Client) -> None:
+    """get_esphome_schema with component should return JSON schema."""
+    result = await mcp_client.call_tool(
+        "get_esphome_schema", {"version": "2025.8.0", "component": "sensor"}
+    )
+    text = result.content[0].text
+
+    # Should be valid JSON schema content
+    assert "sensor" in text.lower() or "{" in text
+
+
+@pytest.mark.asyncio
+async def test_get_esphome_schema_invalid_component(mcp_client: Client) -> None:
+    """get_esphome_schema with invalid component should return error."""
+    result = await mcp_client.call_tool(
+        "get_esphome_schema", {"version": "2025.8.0", "component": "nonexistent_component"}
+    )
+    text = result.content[0].text
+
+    assert "not found" in text.lower()

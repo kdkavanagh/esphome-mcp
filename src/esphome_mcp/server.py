@@ -6,7 +6,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from esphome_mcp.client import get_client
+from esphome_mcp.client import fetch_schema, get_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,22 @@ before passing it to any other tool.
    - `list_devices` — detailed info on all devices (versions, status, addresses, platform)
    - `check_device_update` — check if a firmware update is available
    - `get_device_status` — check if a device is online or offline
+   - `get_device_version` — get the deployed and current firmware versions
    - `get_device_configuration` — view the full YAML configuration
    - `get_device_logs` — stream recent logs (default 10s, max 30s). \
 The device must be online for logs to be available.
+
+3. To look up ESPHome configuration schema:
+   - `get_esphome_schema(version)` — list available components for a version
+   - `get_esphome_schema(version, component)` — get the JSON schema for a specific component
+   - Use `get_device_version` to find the version a device is running, then fetch the \
+matching schema.
+
+## ESPHome documentation
+- Components: https://esphome.io/components/
+- Guides: https://esphome.io/guides/
+- Cookbook (example configs): https://esphome.io/cookbook/
+- Changelog: https://esphome.io/changelog
 
 ## Important notes
 - All tools are read-only. No changes can be made to devices or configurations.
@@ -216,6 +229,87 @@ async def get_device_status(device_name: str) -> str:
 
     logger.info("Device %r status=%s address=%s", name, status, address)
     return f"{name}: {status} (address: {address})"
+
+
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+    }
+)
+async def get_device_version(device_name: str) -> str:
+    """Get the ESPHome firmware version for a specific device.
+
+    Returns the deployed version and the current (latest compiled) version.
+
+    Args:
+        device_name: The name of the device to check.
+    """
+    logger.info("Getting version for device=%r", device_name)
+    try:
+        result = await _resolve_device(device_name)
+    except Exception as e:
+        logger.error("Failed to resolve device %r: %s", device_name, e)
+        return f"Error: {e}"
+
+    if isinstance(result, str):
+        return result
+
+    device = result
+    name = device.get("friendly_name") or device.get("name", "unknown")
+    deployed = device.get("deployed_version", "")
+    current = device.get("current_version", "")
+
+    parts: list[str] = [f"{name}:"]
+    if deployed:
+        parts.append(f"  Deployed version: {deployed}")
+    else:
+        parts.append("  Deployed version: not yet flashed")
+    if current:
+        parts.append(f"  Current version: {current}")
+
+    logger.info("Device %r deployed=%s current=%s", name, deployed, current)
+    return "\n".join(parts)
+
+
+@mcp.tool(
+    annotations={
+        "readOnlyHint": True,
+        "destructiveHint": False,
+    }
+)
+async def get_esphome_schema(version: str, component: str | None = None) -> str:
+    """Get the ESPHome configuration schema for a specific version.
+
+    Returns the JSON schema used for validating ESPHome YAML configurations.
+    If a component name is provided, returns only that component's schema.
+    Otherwise returns the list of available component names.
+
+    Args:
+        version: ESPHome version (e.g. "2026.3.0").
+        component: Optional component name (e.g. "sensor", "wifi", "esp32"). \
+If omitted, returns the list of available components.
+    """
+    logger.info("Fetching schema version=%s component=%r", version, component)
+    try:
+        if component is None:
+            schemas = await fetch_schema(version)
+            assert isinstance(schemas, dict)
+            names = sorted(schemas.keys())
+            logger.info("Schema %s has %d components", version, len(names))
+            return f"ESPHome {version} schema — {len(names)} components:\n" + "\n".join(names)
+        else:
+            schema_json = await fetch_schema(version, component)
+            assert isinstance(schema_json, str)
+            logger.info(
+                "Returned schema for %s/%s (%d bytes)", version, component, len(schema_json)
+            )
+            return schema_json
+    except KeyError as e:
+        return str(e)
+    except Exception as e:
+        logger.error("Failed to fetch schema %s/%s: %s", version, component, e)
+        return f"Error fetching schema: {e}"
 
 
 @mcp.tool(

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import io
 import json
 import logging
+import zipfile
 from typing import Any
 from urllib.parse import urlparse
 
@@ -161,6 +163,55 @@ class ESPHomeClient:
 
         logger.debug("Collected %d log lines from %s", len(lines), filename)
         return "\n".join(lines)
+
+
+SCHEMA_URL_TEMPLATE = (
+    "https://github.com/esphome/esphome-schema/releases/download/{version}/schema.zip"
+)
+
+# Cache: version -> {component_name: json_string}
+_schema_cache: dict[str, dict[str, str]] = {}
+
+
+async def fetch_schema(version: str, component: str | None = None) -> dict[str, str] | str:
+    """Fetch and cache the ESPHome schema for a given version.
+
+    Args:
+        version: ESPHome version (e.g. "2026.3.0").
+        component: Optional component name to return a single schema.
+
+    Returns:
+        If component is specified, returns the JSON string for that component.
+        Otherwise returns a dict mapping component names to JSON strings.
+    """
+    if version not in _schema_cache:
+        url = SCHEMA_URL_TEMPLATE.format(version=version)
+        logger.info("Downloading ESPHome schema for version %s", version)
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            resp = await client.get(url)
+            resp.raise_for_status()
+
+        schemas: dict[str, str] = {}
+        with zipfile.ZipFile(io.BytesIO(resp.content)) as zf:
+            for name in zf.namelist():
+                if name.endswith(".json"):
+                    # Strip "schema/" prefix and ".json" suffix
+                    component_name = name.rsplit("/", 1)[-1].removesuffix(".json")
+                    schemas[component_name] = zf.read(name).decode()
+
+        logger.info("Cached schema for version %s (%d components)", version, len(schemas))
+        _schema_cache[version] = schemas
+
+    cached = _schema_cache[version]
+    if component is not None:
+        if component not in cached:
+            available = sorted(cached.keys())
+            raise KeyError(
+                f"Component '{component}' not found in schema {version}. "
+                f"Available components ({len(available)}): {', '.join(available)}"
+            )
+        return cached[component]
+    return cached
 
 
 _client: ESPHomeClient | None = None

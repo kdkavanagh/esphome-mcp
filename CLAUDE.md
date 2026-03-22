@@ -18,7 +18,7 @@ ESPHome MCP Server — a Python MCP server exposing read-only tools for interact
 src/esphome_mcp/
 ├── __init__.py
 ├── __main__.py      # Entry point: calls mcp.run()
-├── server.py        # FastMCP instance + 4 tool definitions
+├── server.py        # FastMCP instance + 8 tool definitions
 └── client.py        # ESPHome dashboard HTTP/WS client + settings
 tests/
 ├── conftest.py      # Fixtures: real ESPHome dashboard + MCP client
@@ -58,4 +58,14 @@ Tests are **integration tests** — they start a real ESPHome dashboard subproce
 | `GET /devices` | HTTP | List configured devices |
 | `GET /version` | HTTP | Get ESPHome version |
 | `GET /edit?configuration=<file>` | HTTP | Read YAML config |
-| `WS /logs` | WebSocket | Stream device logs |
+| `GET /ping` | HTTP | Trigger device status refresh |
+| `WS /logs` | WebSocket | Stream device logs (send `{"type":"spawn","configuration":"...","port":"OTA"}`) |
+
+## ESPHome Schema
+Schemas are fetched from `https://github.com/esphome/esphome-schema/releases/download/<version>/schema.zip` and cached in memory. Each zip contains JSON files per component.
+
+## ESPHome Documentation
+- Components: https://esphome.io/components/
+- Guides: https://esphome.io/guides/
+- Cookbook: https://esphome.io/cookbook/
+- Changelog: https://esphome.io/changelog

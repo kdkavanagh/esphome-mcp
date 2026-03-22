@@ -10,8 +10,10 @@ An MCP (Model Context Protocol) server for interacting with an [ESPHome](https:/
 | `list_device_names` | List only the names of all configured devices |
 | `check_device_update` | Check if a firmware update is available for a specific device |
 | `get_device_status` | Check whether a device is online or offline |
+| `get_device_version` | Get the deployed and current firmware versions for a device |
 | `get_device_configuration` | View the YAML configuration file for a device |
 | `get_device_logs` | Stream and collect logs from a device (configurable duration, max 30s) |
+| `get_esphome_schema` | Get the ESPHome configuration schema for a specific version (list components or get a component's schema) |
 
 ## Installation
 
@@ -91,8 +93,10 @@ Add a `.claude/settings.json` to your project to auto-approve the read-only tool
       "mcp__esphome__list_device_names",
       "mcp__esphome__check_device_update",
       "mcp__esphome__get_device_status",
+      "mcp__esphome__get_device_version",
       "mcp__esphome__get_device_configuration",
-      "mcp__esphome__get_device_logs"
+      "mcp__esphome__get_device_logs",
+      "mcp__esphome__get_esphome_schema"
     ]
   },
   "mcpServers": {
