@@ -105,7 +105,7 @@ services:
     restart: unless-stopped
 
   esphome-mcp:
-    build: .
+    image: ghcr.io/kdkavanagh/esphome-mcp:latest
     environment:
       - ESPHOME_DASHBOARD_URL=http://esphome:6052
     # Uncomment if your dashboard has auth enabled:
@@ -126,7 +126,7 @@ To use the Docker container with Claude Desktop, configure it with the `docker` 
       "args": [
         "run", "-i", "--rm",
         "-e", "ESPHOME_DASHBOARD_URL=http://192.168.1.100:6052",
-        "esphome-mcp"
+        "ghcr.io/kdkavanagh/esphome-mcp:latest"
       ]
     }
   }

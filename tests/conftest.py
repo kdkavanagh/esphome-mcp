@@ -169,7 +169,7 @@ def _find_free_port() -> int:
 
 
 @pytest.fixture(scope="session")
-def esphome_config_dir() -> Generator[Path, None, None]:
+def esphome_config_dir() -> Generator[Path]:
     """Create a temporary directory with realistic ESPHome device configs."""
     with tempfile.TemporaryDirectory(prefix="esphome_test_") as tmpdir:
         config_dir = Path(tmpdir)
@@ -180,7 +180,7 @@ def esphome_config_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture(scope="session")
-def esphome_dashboard(esphome_config_dir: Path) -> Generator[str, None, None]:
+def esphome_dashboard(esphome_config_dir: Path) -> Generator[str]:
     """Start an ESPHome dashboard subprocess and yield its base URL."""
     port = _find_free_port()
     proc = subprocess.Popen(
@@ -230,7 +230,7 @@ def esphome_dashboard(esphome_config_dir: Path) -> Generator[str, None, None]:
 
 
 @pytest.fixture(scope="session")
-def esphome_client(esphome_dashboard: str) -> Generator[None, None, None]:
+def esphome_client(esphome_dashboard: str) -> Generator[None]:
     """Configure the shared client to point at the test dashboard."""
     settings = ESPHomeSettings(esphome_dashboard_url=esphome_dashboard)
     client_module.configure(settings)
@@ -239,7 +239,7 @@ def esphome_client(esphome_dashboard: str) -> Generator[None, None, None]:
 
 
 @pytest.fixture
-async def mcp_client(esphome_client: None) -> AsyncGenerator[Client, None]:
+async def mcp_client(esphome_client: None) -> AsyncGenerator[Client]:
     """Create a FastMCP in-memory test client."""
     async with Client(transport=mcp) as c:
         yield c

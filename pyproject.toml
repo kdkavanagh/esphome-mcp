@@ -1,6 +1,6 @@
 [project]
 name = "esphome-mcp"
-version = "0.1.0"
+dynamic = ["version"]
 description = "MCP server for interacting with an ESPHome dashboard"
 requires-python = ">=3.13"
 dependencies = [
@@ -23,8 +23,11 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
 
 [tool.ruff]
 target-version = "py313"
