@@ -115,16 +115,21 @@ class ESPHomeClient:
         path: str,
         message: dict[str, Any],
         timeout: float,
+        done_pattern: str | None = None,
     ) -> tuple[str, int]:
         """Run a WebSocket command and collect output.
 
         Connects to the given WS path, sends the spawn message, and collects
-        line events until an exit event or timeout.
+        line events until an exit event, a done pattern match, or timeout.
 
         Args:
             path: WebSocket endpoint path (e.g. "/logs", "/validate").
             message: JSON message to send after connecting.
             timeout: Maximum seconds to wait for the command to complete.
+            done_pattern: Optional substring to match in line data. When a line
+                contains this string, collection stops and exit code 0 is returned.
+                Useful for commands like ``esphome run`` that never exit on their
+                own because they transition into log-tailing mode after OTA.
 
         Returns:
             Tuple of (collected output text, exit code). Exit code is -1 on timeout.
@@ -147,7 +152,16 @@ class ESPHomeClient:
                         async for raw_msg in ws:
                             msg = json.loads(raw_msg)
                             if msg.get("event") == "line":
-                                lines.append(msg.get("data", ""))
+                                data = msg.get("data", "")
+                                lines.append(data)
+                                if done_pattern and done_pattern in data:
+                                    exit_code = 0
+                                    logger.debug(
+                                        "WS %s: done pattern matched: %r",
+                                        path,
+                                        done_pattern,
+                                    )
+                                    break
                             elif msg.get("event") == "exit":
                                 exit_code = msg.get("code", -1)
                                 logger.debug("WS %s: exited with code %s", path, exit_code)
@@ -240,6 +254,7 @@ class ESPHomeClient:
             "/run",
             {"type": "spawn", "configuration": filename, "port": "OTA"},
             timeout=timeout,
+            done_pattern="OTA successful",
         )
 
 
