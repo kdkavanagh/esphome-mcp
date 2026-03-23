@@ -560,9 +560,11 @@ async def install_device_configuration(device_name: str) -> str:
         logger.error("Failed to install configuration for %r: %s", device_name, e)
         return f"Error installing configuration: {e}"
 
-    status = "SUCCESS" if exit_code == 0 else "FAILED"
-    logger.info("Install for %r: %s (exit_code=%d)", name, status, exit_code)
-    return f"Install result for {name}: {status}\n\n{output}"
+    if exit_code == 0:
+        logger.info("Install for %r: SUCCESS", name)
+        return f"Install result for {name}: SUCCESS"
+    logger.info("Install for %r: FAILED (exit_code=%d)", name, exit_code)
+    return f"Install result for {name}: FAILED\n\n{output}"
 
 
 @mcp.tool(
@@ -601,6 +603,8 @@ async def update_device(device_name: str) -> str:
         logger.error("Failed to update device %r: %s", device_name, e)
         return f"Error updating device: {e}"
 
-    status = "SUCCESS" if exit_code == 0 else "FAILED"
-    logger.info("Update for %r: %s (exit_code=%d)", name, status, exit_code)
-    return f"Update result for {name}: {status}\n\n{output}"
+    if exit_code == 0:
+        logger.info("Update for %r: SUCCESS", name)
+        return f"Update result for {name}: SUCCESS"
+    logger.info("Update for %r: FAILED (exit_code=%d)", name, exit_code)
+    return f"Update result for {name}: FAILED\n\n{output}"
