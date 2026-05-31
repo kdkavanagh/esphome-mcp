@@ -11,11 +11,11 @@ An MCP (Model Context Protocol) server for interacting with an [ESPHome](https:/
 | `check_device_update` | Check if a firmware update is available for a specific device |
 | `get_device_status` | Check whether a device is online or offline |
 | `get_device_version` | Get the deployed and current firmware versions for a device |
-| `get_device_configuration` | View the YAML configuration file for a device |
+| `get_device_configuration` | View the YAML configuration file for a device, or save it to a local file with `output_path` |
 | `get_device_logs` | Stream and collect logs from a device (configurable duration, max 30s) |
 | `get_esphome_schema` | Get the ESPHome configuration schema for a specific version (list components or get a component's schema) |
-| `validate_device_configuration` | Validate a device's saved YAML configuration without modifying anything |
-| `edit_device_configuration` | Save a new YAML configuration for a device (saves and validates) |
+| `validate_device_configuration` | Validate a configuration without modifying anything — pass a device name (validates the saved config on the dashboard) or a path to a local YAML file (validated with the ESPHome CLI) |
+| `edit_device_configuration` | Save a new YAML configuration for a device (saves and validates); pass the YAML inline via `yaml_content` or read it from a local file via `config_path` |
 | `install_device_configuration` | Compile and flash firmware to a device via OTA |
 | `update_device` | Recompile and flash a device with the latest ESPHome version |
 

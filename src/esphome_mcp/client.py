@@ -5,7 +5,9 @@ import base64
 import io
 import json
 import logging
+import sys
 import zipfile
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
@@ -256,6 +258,49 @@ class ESPHomeClient:
             timeout=timeout,
             done_pattern="OTA successful",
         )
+
+
+async def validate_local_configuration(path: str, timeout: float = 120.0) -> tuple[str, int]:
+    """Validate a local ESPHome YAML file with the ESPHome validator.
+
+    Runs ``esphome config <path>`` as a subprocess using the current Python
+    interpreter, so ``esphome`` must be installed in the same environment. The
+    ``!secret`` references are resolved relative to the file's directory, as with
+    the ``esphome`` CLI.
+
+    Args:
+        path: Path to a local ESPHome YAML configuration file.
+        timeout: Maximum seconds to wait for validation (default 120).
+
+    Returns:
+        Tuple of (validation output, exit code). Exit code 0 means valid.
+
+    Raises:
+        FileNotFoundError: If the path does not point to an existing file.
+    """
+    config_path = Path(path)
+    if not config_path.is_file():
+        raise FileNotFoundError(f"Configuration file not found: {path}")
+
+    cmd = [sys.executable, "-m", "esphome", "config", str(config_path)]
+    logger.info("Validating local configuration %s", config_path)
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+    try:
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        logger.warning("Local validation of %s timed out after %.0fs", config_path, timeout)
+        return f"Validation timed out after {timeout:.0f} seconds", -1
+
+    output = stdout.decode(errors="replace")
+    exit_code = proc.returncode if proc.returncode is not None else -1
+    logger.info("Local validation of %s exited with code %s", config_path, exit_code)
+    return output, exit_code
 
 
 SCHEMA_URL_TEMPLATE = (

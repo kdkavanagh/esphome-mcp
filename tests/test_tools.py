@@ -4,9 +4,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from tests.conftest import BIKE_OUTLET_YAML
+from tests.conftest import BIKE_OUTLET_YAML, SECRETS_YAML
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from fastmcp.client import Client
 
 
@@ -98,6 +100,27 @@ async def test_get_device_configuration_not_found(mcp_client: Client) -> None:
     text = result.content[0].text
 
     assert "not found" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_device_configuration_output_path(mcp_client: Client, tmp_path: Path) -> None:
+    """get_device_configuration should write the config to a local file when given output_path."""
+    out_file = tmp_path / "nested" / "bike-outlet.yaml"
+
+    result = await mcp_client.call_tool(
+        "get_device_configuration",
+        {"device_name": "bike-outlet", "output_path": str(out_file)},
+    )
+    text = result.content[0].text
+
+    # The tool returns a confirmation, not the YAML itself.
+    assert "written to" in text.lower()
+    assert str(out_file) in text
+    # The file (and its parent directory) should have been created with the config.
+    assert out_file.is_file()
+    written = out_file.read_text()
+    assert "name: bike-outlet" in written
+    assert "cse7766" in written
 
 
 @pytest.mark.asyncio
@@ -202,7 +225,7 @@ async def test_get_esphome_schema_invalid_component(mcp_client: Client) -> None:
 async def test_validate_device_configuration(mcp_client: Client) -> None:
     """validate_device_configuration should return validation output for a known device."""
     result = await mcp_client.call_tool(
-        "validate_device_configuration", {"device_name": "bike-outlet"}
+        "validate_device_configuration", {"device_or_path": "bike-outlet"}
     )
     text = result.content[0].text
 
@@ -214,7 +237,39 @@ async def test_validate_device_configuration(mcp_client: Client) -> None:
 async def test_validate_device_configuration_not_found(mcp_client: Client) -> None:
     """validate_device_configuration should return error for unknown device."""
     result = await mcp_client.call_tool(
-        "validate_device_configuration", {"device_name": "nonexistent"}
+        "validate_device_configuration", {"device_or_path": "nonexistent"}
+    )
+    text = result.content[0].text
+
+    assert "not found" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_validate_device_configuration_local_file(
+    mcp_client: Client, tmp_path: Path
+) -> None:
+    """validate_device_configuration should validate a local YAML file by path."""
+    config_file = tmp_path / "bike-outlet.yaml"
+    config_file.write_text(BIKE_OUTLET_YAML)
+    (tmp_path / "secrets.yaml").write_text(SECRETS_YAML)
+
+    result = await mcp_client.call_tool(
+        "validate_device_configuration", {"device_or_path": str(config_file)}
+    )
+    text = result.content[0].text
+
+    assert "Validation result: VALID" in text
+
+
+@pytest.mark.asyncio
+async def test_validate_device_configuration_local_file_missing(
+    mcp_client: Client, tmp_path: Path
+) -> None:
+    """validate_device_configuration should report a missing local file path."""
+    missing = tmp_path / "does-not-exist.yaml"
+
+    result = await mcp_client.call_tool(
+        "validate_device_configuration", {"device_or_path": str(missing)}
     )
     text = result.content[0].text
 
@@ -262,6 +317,56 @@ async def test_edit_device_configuration_not_found(mcp_client: Client) -> None:
     text = result.content[0].text
 
     assert "not found" in text.lower()
+
+
+@pytest.mark.asyncio
+async def test_edit_device_configuration_from_path(mcp_client: Client, tmp_path: Path) -> None:
+    """edit_device_configuration should read YAML from a local file via config_path."""
+    modified_yaml = BIKE_OUTLET_YAML.replace(
+        "friendly_name: Bike Outlet", "friendly_name: Bike Outlet From File"
+    )
+    config_file = tmp_path / "bike-outlet.yaml"
+    config_file.write_text(modified_yaml)
+
+    result = await mcp_client.call_tool(
+        "edit_device_configuration",
+        {"device_name": "bike-outlet", "config_path": str(config_file)},
+    )
+    text = result.content[0].text
+
+    assert "saved" in text.lower()
+    assert "validation result" in text.lower()
+
+    # Verify the file contents were applied to the device.
+    read_result = await mcp_client.call_tool(
+        "get_device_configuration", {"device_name": "bike-outlet"}
+    )
+    assert "Bike Outlet From File" in read_result.content[0].text
+
+    # Restore original config.
+    await mcp_client.call_tool(
+        "edit_device_configuration",
+        {"device_name": "bike-outlet", "yaml_content": BIKE_OUTLET_YAML},
+    )
+
+
+@pytest.mark.asyncio
+async def test_edit_device_configuration_requires_one_source(mcp_client: Client) -> None:
+    """edit_device_configuration should reject calls with neither or both content sources."""
+    neither = await mcp_client.call_tool(
+        "edit_device_configuration", {"device_name": "bike-outlet"}
+    )
+    assert "exactly one" in neither.content[0].text.lower()
+
+    both = await mcp_client.call_tool(
+        "edit_device_configuration",
+        {
+            "device_name": "bike-outlet",
+            "yaml_content": BIKE_OUTLET_YAML,
+            "config_path": "/tmp/whatever.yaml",
+        },
+    )
+    assert "exactly one" in both.content[0].text.lower()
 
 
 @pytest.mark.asyncio

@@ -23,6 +23,7 @@ BIKE_OUTLET_YAML = """\
 esphome:
   name: bike-outlet
   friendly_name: Bike Outlet
+  compile_process_limit: 3
 
 esp8266:
   board: esp01_1m

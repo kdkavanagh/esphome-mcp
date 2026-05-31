@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 
-from esphome_mcp.client import fetch_schema, get_client
+from esphome_mcp.client import fetch_schema, get_client, validate_local_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ before passing it to any other tool.
    - `check_device_update` — check if a firmware update is available
    - `get_device_status` — check if a device is online or offline
    - `get_device_version` — get the deployed and current firmware versions
-   - `get_device_configuration` — view the full YAML configuration
+   - `get_device_configuration` — view the full YAML configuration, or save it to \
+a local file with `output_path`
    - `get_device_logs` — stream recent logs (default 10s, max 30s). \
 The device must be online for logs to be available.
 
@@ -38,12 +40,14 @@ matching schema.
 4. To modify a device configuration:
    - First read the current config with `get_device_configuration`
    - Make your changes to the YAML
-   - Save with `edit_device_configuration` — this saves AND validates, reporting any errors
+   - Save with `edit_device_configuration` — pass the YAML inline via `yaml_content`, \
+or a local file path via `config_path`. This saves AND validates, reporting any errors
    - Ensure edits conform to the ESPHome schema (use `get_esphome_schema` to check)
    - If validation passes, flash with `install_device_configuration`
 
 5. To validate without saving:
-   - Use `validate_device_configuration` to check a device's current saved config
+   - Use `validate_device_configuration` with a device name to check a device's saved \
+config, or with a local YAML file path to validate that file
 
 6. To update a device to the latest ESPHome version:
    - Check for updates with `check_device_update`
@@ -334,11 +338,14 @@ If omitted, returns the list of available components.
         "destructiveHint": False,
     }
 )
-async def get_device_configuration(device_name: str) -> str:
+async def get_device_configuration(device_name: str, output_path: str | None = None) -> str:
     """View the YAML configuration for an ESPHome device.
 
     Args:
         device_name: The name of the device whose configuration to view.
+        output_path: Optional local file path. When provided, the configuration
+            is written to this file (creating parent directories as needed) and a
+            confirmation is returned instead of the YAML content.
     """
     logger.info("Fetching configuration for device=%r", device_name)
     try:
@@ -362,6 +369,25 @@ async def get_device_configuration(device_name: str) -> str:
     except Exception as e:
         logger.error("Failed to fetch configuration %r: %s", filename, e)
         return f"Error fetching configuration: {e}"
+
+    if output_path is not None:
+        try:
+            dest = Path(output_path)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(yaml_content, encoding="utf-8")
+        except OSError as e:
+            logger.error("Failed to write configuration to %r: %s", output_path, e)
+            return f"Error writing configuration to {output_path}: {e}"
+        logger.info(
+            "Wrote configuration for %r to %s (%d bytes)",
+            device_name,
+            output_path,
+            len(yaml_content),
+        )
+        return (
+            f"Configuration for {device_name} written to {output_path} "
+            f"({len(yaml_content)} bytes)."
+        )
 
     logger.info("Returned configuration for %r (%d bytes)", device_name, len(yaml_content))
     return yaml_content
@@ -438,20 +464,50 @@ async def _resolve_filename(device_name: str) -> tuple[dict[str, Any], str] | st
         "destructiveHint": False,
     }
 )
-async def validate_device_configuration(device_name: str) -> str:
-    """Validate the current saved configuration for an ESPHome device.
+async def validate_device_configuration(device_or_path: str) -> str:
+    """Validate an ESPHome configuration without modifying anything.
 
-    Runs the ESPHome configuration validator against the device's YAML file
-    without modifying anything.
+    Accepts either a device name or a path to a local YAML file:
+    - Device name: validates the device's saved configuration on the dashboard.
+    - Local file path: validates that file with the ESPHome validator (requires
+      ``esphome`` to be installed in this server's environment).
+
+    The argument is treated as a path when it contains a path separator or ends
+    in ``.yaml``/``.yml``; otherwise it is treated as a device name.
 
     Args:
-        device_name: The name of the device whose configuration to validate.
+        device_or_path: A device name (as shown in list_device_names) or a path
+            to a local ESPHome YAML configuration file.
     """
-    logger.info("Validating configuration for device=%r", device_name)
+    logger.info("Validating configuration for %r", device_or_path)
+
+    looks_like_path = (
+        "/" in device_or_path
+        or "\\" in device_or_path
+        or device_or_path.endswith((".yaml", ".yml"))
+    )
+
+    if looks_like_path:
+        if not Path(device_or_path).is_file():
+            logger.warning("Configuration file not found: %r", device_or_path)
+            return f"Configuration file not found: {device_or_path}"
+        try:
+            output, exit_code = await validate_local_configuration(device_or_path)
+        except Exception as e:
+            logger.error("Failed to validate local file %r: %s", device_or_path, e)
+            return f"Error validating configuration: {e}"
+
+        status = "VALID" if exit_code == 0 else "INVALID"
+        logger.info(
+            "Local validation for %r: %s (exit_code=%d)", device_or_path, status, exit_code
+        )
+        return f"Validation result: {status}\n\n{output}"
+
+    # Treat the argument as a device name and validate the saved dashboard config.
     try:
-        resolved = await _resolve_filename(device_name)
+        resolved = await _resolve_filename(device_or_path)
     except Exception as e:
-        logger.error("Failed to resolve device %r: %s", device_name, e)
+        logger.error("Failed to resolve device %r: %s", device_or_path, e)
         return f"Error: {e}"
 
     if isinstance(resolved, str):
@@ -462,11 +518,11 @@ async def validate_device_configuration(device_name: str) -> str:
     try:
         output, exit_code = await get_client().validate_configuration(filename)
     except Exception as e:
-        logger.error("Failed to validate %r: %s", device_name, e)
+        logger.error("Failed to validate %r: %s", device_or_path, e)
         return f"Error validating configuration: {e}"
 
     status = "VALID" if exit_code == 0 else "INVALID"
-    logger.info("Validation for %r: %s (exit_code=%d)", device_name, status, exit_code)
+    logger.info("Validation for %r: %s (exit_code=%d)", device_or_path, status, exit_code)
     return f"Validation result: {status}\n\n{output}"
 
 
@@ -476,22 +532,43 @@ async def validate_device_configuration(device_name: str) -> str:
         "destructiveHint": False,
     }
 )
-async def edit_device_configuration(device_name: str, yaml_content: str) -> str:
+async def edit_device_configuration(
+    device_name: str,
+    yaml_content: str | None = None,
+    config_path: str | None = None,
+) -> str:
     """Save a new YAML configuration for an ESPHome device.
 
-    Saves the provided YAML content as the device's configuration file, then
-    automatically validates it. The configuration is saved even if validation fails,
+    Provide the new configuration either inline via ``yaml_content`` or by
+    pointing ``config_path`` at a local YAML file to read. Exactly one of the two
+    must be supplied. The configuration is saved as the device's file and then
+    automatically validated. The configuration is saved even if validation fails,
     so you can fix issues and re-save.
 
     **Workflow**: First read the current config with `get_device_configuration`,
-    make your changes, then pass the complete modified YAML here. Ensure edits
-    conform to the ESPHome schema (use `get_esphome_schema` to verify).
+    make your changes, then pass the complete modified YAML here (or a path to a
+    file containing it). Ensure edits conform to the ESPHome schema (use
+    `get_esphome_schema` to verify).
 
     Args:
         device_name: The name of the device whose configuration to edit.
         yaml_content: The complete YAML configuration content to save.
+        config_path: Path to a local YAML file whose contents to save. Mutually
+            exclusive with ``yaml_content``.
     """
     logger.info("Editing configuration for device=%r", device_name)
+
+    if (yaml_content is None) == (config_path is None):
+        return "Error: provide exactly one of 'yaml_content' or 'config_path'."
+
+    if config_path is not None:
+        try:
+            yaml_content = Path(config_path).read_text(encoding="utf-8")
+        except OSError as e:
+            logger.error("Failed to read configuration file %r: %s", config_path, e)
+            return f"Error reading configuration file {config_path}: {e}"
+    assert yaml_content is not None
+
     try:
         resolved = await _resolve_filename(device_name)
     except Exception as e:
