@@ -82,8 +82,8 @@ async def _resolve_device(device_name: str) -> dict[str, Any] | str:
     name_lower = device_name.lower()
     for device in devices:
         if (
-            device.get("name", "").lower() == name_lower
-            or device.get("friendly_name", "").lower() == name_lower
+            (device.get("name") or "").lower() == name_lower
+            or (device.get("friendly_name") or "").lower() == name_lower
         ):
             logger.debug("Resolved %r to device config=%r", device_name, device.get("name"))
             return device
